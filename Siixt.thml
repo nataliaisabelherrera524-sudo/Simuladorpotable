@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AquaSim Santa Marta 3D</title>
+<style>
+:root{--deep:#0a2a4a;--blue:#1769aa;--light:#d8ecfa;--bg:#eef3f8;--card:#fff;--txt:#17283a;--mut:#5b6b7c;--bd:#c9d6e2;--ok:#1b9a5a;--warn:#e0920b;--bad:#cf3b3b}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
+header{background:var(--deep);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:1.25rem}header p{margin:2px 0 0;font-size:.8rem;color:#a9cde8}
+.btns{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button,select{font:inherit;border:1px solid var(--blue);background:var(--blue);color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer}
+button.sec{background:#fff;color:var(--blue)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #ffb703;outline-offset:1px}
+.led{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;padding:4px 10px;border-radius:14px;background:#123d66}
+.led i{width:10px;height:10px;border-radius:50%;background:#8aa;display:inline-block}.led.on i{background:#3ddc84}
+.warnbar{background:#fff7e0;border-bottom:1px solid #f0d890;padding:6px 16px;font-size:.8rem;color:#6a4b00}
+.app{display:grid;grid-template-columns:310px minmax(0,1fr) 320px;gap:10px;padding:10px}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px;min-width:0}
+.side{max-height:620px;overflow:auto}
+h2{font-size:.95rem;margin:0 0 8px;color:var(--deep)}h3{font-size:.85rem;margin:12px 0 6px;color:var(--blue);border-bottom:1px solid var(--bd);padding-bottom:3px}
+.ctl{margin-bottom:8px}.ctl label{display:flex;justify-content:space-between;font-size:.78rem;color:var(--mut)}
+.ctl .row{display:flex;gap:6px;align-items:center}.ctl input[type=range]{flex:1;min-width:0}
+.ctl input[type=number]{width:92px;padding:3px 5px;border:1px solid var(--bd);border-radius:4px}
+#view{position:relative;height:620px;border-radius:8px;overflow:hidden;background:#cfe6f5}
+#view canvas{display:block;width:100%;height:100%;touch-action:none}
+.vbtn{position:absolute;top:8px;left:8px;display:flex;gap:6px;flex-wrap:wrap}
+.vbtn button{padding:4px 8px;font-size:.78rem}
+#info{position:absolute;left:8px;bottom:8px;right:8px;background:rgba(10,42,74,.88);color:#fff;padding:6px 10px;border-radius:6px;font-size:.8rem}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.m{border:1px solid var(--bd);border-radius:6px;padding:6px;background:#f8fbfe}.m b{display:block;font-size:1rem;color:var(--deep)}.m span{font-size:.72rem;color:var(--mut)}
+.m.ok b{color:var(--ok)}.m.warn b{color:var(--warn)}.m.bad b{color:var(--bad)}
+#alerts div{padding:5px 8px;border-radius:5px;margin-bottom:4px;font-size:.8rem;border-left:4px solid}
+.a-ok{background:#e6f6ed;border-color:var(--ok)}.a-warn{background:#fff3da;border-color:var(--warn)}.a-bad{background:#fde7e7;border-color:var(--bad)}
+.bottom{padding:0 10px 14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.bottom .panel canvas{max-height:260px}
+.eq{font-family:Consolas,monospace;font-size:.78rem;background:#f3f7fb;border:1px solid var(--bd);border-radius:6px;padding:8px;white-space:pre-wrap;overflow-x:auto;margin:6px 0}
+.full{grid-column:1/-1}
+@media(max-width:1050px){.app{grid-template-columns:1fr}.side{max-height:none}#view{height:420px}.bottom{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+ <div><h1>AquaSim Santa Marta 3D: Simulador de Abastecimiento y Distribución de Agua Potable</h1>
+ <p>Modelación y simulación hidráulica aplicada a Santa Marta · Línea: Gestión Integral de Recursos Hídricos en Zonas Costeras (con hidráulica de redes de acueducto)</p></div>
+ <div class="btns">
+  <span class="led" id="led"><i></i><span id="ledt">Detenido</span></span>
+  <button id="bStart">Iniciar</button><button id="bPause" class="sec">Pausar</button>
+  <button id="bReset" class="sec">Reiniciar</button><button id="bRestore" class="sec">Restaurar parámetros</button>
+  <select id="speed" title="Velocidad de simulación"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option><option value="600">600×</option><option value="3600">3600×</option></select>
+ </div>
+</header>
+<div class="warnbar">Este simulador es una herramienta académica de modelación hidráulica. Los valores predeterminados son ilustrativos y no constituyen mediciones oficiales ni un diagnóstico operativo del acueducto real de Santa Marta.</div>
+<main class="app">
+ <section class="panel side" aria-label="Controles"><h2>Parámetros hidráulicos (hipotéticos)</h2><div id="controls"></div></section>
+ <section class="panel" style="padding:0">
+  <div id="view"><div class="vbtn"><button id="bHome">Vista inicial</button><button id="bLabels" class="sec">Nombres</button></div><div id="info">Clic en un elemento para ver sus datos. Arrastre: rotar · clic derecho/Mayús: desplazar · rueda o pellizco: zoom.</div></div>
+ </section>
+ <section class="panel side" aria-label="Resultados"><h2>Resultados en tiempo real</h2><div class="cards" id="cards"></div><h3>Alertas</h3><div id="alerts"></div>
+  <h3>Tubería seleccionada</h3><select id="pipeSel" style="width:100%;color:#17283a;background:#fff"><option value="P1">P1 PTAP → Bomba</option><option value="P2" selected>P2 Bomba → Tanque (conducción)</option><option value="P3">P3 Tanque → Red</option></select><div class="cards" id="pipeInfo" style="margin-top:6px"></div></section>
+</main>
+<section class="bottom">
+ <div class="panel"><h2>Volumen almacenado en el tanque (m³)</h2><canvas id="c1"></canvas></div>
+ <div class="panel"><h2>Caudales: entrada, demanda y entregado (L/s)</h2><canvas id="c2"></canvas></div>
+ <div class="panel"><h2>Carga de bombeo, pérdida hf y carga residual (m)</h2><canvas id="c3"></canvas></div>
+ <div class="panel"><h2>Optimización cuadrática de canal rectangular</h2><div id="qctl"></div><canvas id="c4"></canvas><div class="eq" id="qres"></div></div>
+ <div class="panel full"><h2>Ecuaciones activas con valores actuales</h2><div class="eq" id="eqs"></div>
+ <div class="eq">Supuestos: (1) El tanque es rectangular y V se limita a [0, Vmax]. (2) Q de la conducción P2 = caudal de entrada; Q de P3 = caudal que sale del tanque. (3) Las pérdidas volumétricas p se aplican UNA sola vez, a la salida del tanque hacia la red: Qentregado = Qsalida·(1−p). (4) Si Hresidual &lt; 0 la bomba no vence la conducción y el caudal efectivo de entrada es 0. (5) Se reparte el suministro entre sectores en proporción a su demanda (40 %, 35 %, 25 %). (6) Fricción: laminar 64/Re (Re&lt;2300), Swamee-Jain (Re≥4000), interpolación lineal en la zona de transición. (7) Costos y tarifas son supuestos editables, no valores oficiales.</div></div>
+</section>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+"use strict";
+/* ===== Módulo de unidades (SI interno) ===== */
+const U={Lps_m3s:x=>x/1000,m3s_Lps:x=>x*1000,mm_m:x=>x/1000,m_mm:x=>x*1000,min_s:x=>x*60,h_s:x=>x*3600,d_s:x=>x*86400,s_h:x=>x/3600,s_min:x=>x/60,s_d:x=>x/86400,kW_W:x=>x*1000,W_kW:x=>x/1000};
+const EPS=1e-9,G=9.80665;
+const approx=(a,b,t=1e-9)=>Math.abs(a-b)<=t*Math.max(1,Math.abs(a),Math.abs(b));
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+const fmt=(x,d=2)=>Number.isFinite(x)?x.toLocaleString("es-CO",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";
+const $=id=>document.getElementById(id);
+
+/* ===== Parámetros ===== */
+const CFG=[
+["Fuente y bombeo",
+ ["qin","Caudal de entrada","L/s",0,100,.1,40],["hp","Carga de bombeo Hp","m",0,100,.1,45],["dz","Desnivel Δz (tanque−bomba)","m",-20,100,.1,20],["eta","Eficiencia global η","",.2,.95,.01,.65]],
+["Demanda",
+ ["qd","Demanda base","L/s",0,100,.1,35],["fd","Factor de demanda","",0,2,.01,1]],
+["Válvulas de control",["vin","Apertura válvula de entrada","%",0,100,1,100],["vout","Apertura válvula de salida a la red","%",0,100,1,100]],
+["Tubería principal (P2)",
+ ["D","Diámetro interior","mm",25,500,1,200],["L","Longitud","m",10,5000,1,1500],["eps","Rugosidad absoluta","mm",.001,3,.001,.1],["T","Temperatura del agua","°C",0,40,.5,20]],
+["Tanque rectangular",
+ ["TL","Largo","m",1,60,.1,20],["TB","Ancho","m",1,60,.1,10],["TH","Altura útil","m",.5,20,.1,4],["h0","Nivel inicial","m",0,4,.01,2.5]],
+["Pérdidas",
+ ["loss","Pérdidas volumétricas (salida del tanque)","%",0,50,.1,8]],
+["Costos (supuestos editables)",
+ ["tar","Tarifa de energía","COP/kWh",0,3000,1,800],["fijo","Cargo fijo mensual","COP",0,5000000,1000,150000],["hrs","Horas de operación por día","h",0,24,.5,16],["dias","Días de operación al mes","d",1,31,1,30],["pnom","Potencia nominal manual (0 = usar ecuación hidráulica)","kW",0,500,.1,0]]
+];
+const DEF={};CFG.forEach(g=>g.slice(1).forEach(c=>DEF[c[0]]=c[6]));
+let p={...DEF},LIM={};CFG.forEach(g=>g.slice(1).forEach(c=>LIM[c[0]]=[c[3],c[4]]));
+const Q={P:12,y:2.5,At:15};
+
+/* ===== Propiedades del agua y funciones hidráulicas ===== */
+function aguaProps(T){ // densidad (Kell aprox.) y viscosidad (Vogel)
+ const rho=1000*(1-((T+288.9414)/(508929.2*(T+68.12963)))*Math.pow(T-3.9863,2));
+ const mu=2.414e-5*Math.pow(10,247.8/(T+273.15-140));
+ return{rho,mu};}
+const areaCirc=D=>Math.PI*D*D/4;
+const velocidad=(Qm,D)=>Qm/areaCirc(D);
+const reynolds=(rho,v,D,mu)=>rho*v*D/mu;
+function hfLaminar(mu,L,Qm,rho,D){return 128*mu*L*Qm/(rho*G*Math.PI*Math.pow(D,4));}
+function fSwameeJain(Re,eD){return 0.25/Math.pow(Math.log10(eD/3.7+5.74/Math.pow(Re,.9)),2);}
+function factorFriccion(Re,eD){
+ if(Re<EPS)return 0;if(Re<2300)return 64/Re;if(Re>=4000)return fSwameeJain(Re,eD);
+ const f1=64/2300,f2=fSwameeJain(4000,eD);return f1+(f2-f1)*(Re-2300)/1700;}
+const hfDarcy=(f,L,D,v)=>f*(L/D)*v*v/(2*G);
+function tuberia(Qm,Dmm,L,epsmm){
+ const{rho,mu}=aguaProps(p.T),D=U.mm_m(Dmm);
+ const v=velocidad(Qm,D),Re=reynolds(rho,v,D,mu);
+ const reg=Qm<EPS?"en reposo":Re<2300?"laminar":Re<4000?"transición":"turbulento";
+ const f=factorFriccion(Re,U.mm_m(epsmm)/D);
+ const hf=reg==="laminar"?hfLaminar(mu,L,Qm,rho,D):hfDarcy(f,L,D,v);
+ return{Q:Qm,D,L,v,Re,reg,f,hf,rho,mu};}
+const presionPa=(rho,H)=>rho*G*H; // p = ρ g H
+function volTanque(){const L=p.TL,B=p.TB,H=p.TH;return{Vmax:L*B*H,area:L*B};}
+const nivel=(V,A)=>V/A;
+const potenciaElec=(rho,Qm,H,eta)=>rho*G*Qm*H/eta; // W
+const costoLineal=(E,tar,fijo)=>E*tar+fijo;
+function canalOpt(P){return{y:P/4,b:P/2,A:P*P/8};}
+const areaCanal=(P,y)=>P*y-2*y*y;
+function raicesCanal(P,At){const d=P*P-8*At;if(d<0)return null;const s=Math.sqrt(d);return[(P-s)/4,(P+s)/4];}
+
+/* ===== Estado y balance ===== */
+const S={V:0,lake:5e5,t:0,run:false,cIn:0,cOut:0,cSp:0,cLoss:0,V0:0,hist:{t:[],V:[],qin:[],qd:[],qe:[],hp:[],hf:[],hr:[]},lastSample:0};
+function flujos(dt){
+ const pm=tuberia(U.Lps_m3s(p.qin*p.vin/100),p.D,p.L,p.eps);
+ const Hres=p.hp-pm.hf-p.dz;
+ const pumpOn=pm.Q>EPS&&Hres>=0&&S.lake>EPS;
+ const Qin=pumpOn?pm.Q:0;
+ const Qdem=U.Lps_m3s(p.qd*p.fd),lp=p.loss/100;
+ const Qreq=lp<1?Qdem/(1-lp)*p.vout/100:0;
+ const Qout=Math.min(Qreq,Qin+S.V/Math.max(dt,EPS));
+ const Qdel=Qout*(1-lp),Qloss=Qout*lp;
+ const Qdef=Math.max(0,Qdem-Qdel),Qdisp=Qin*(1-lp),Qexc=Math.max(0,Qdisp-Qdem);
+ return{pm,Hres,pumpOn,Qin,Qdem,Qout,Qdel,Qloss,Qdef,Qdisp,Qexc,defPct:Qdem>EPS?Qdef/Qdem*100:0};}
+function paso(dt){
+ const F=flujos(dt),{Vmax}=volTanque();
+ let Vn=S.V+(F.Qin-F.Qout)*dt,sp=0;
+ if(Vn>Vmax){sp=Vn-Vmax;Vn=Vmax;} if(Vn<0)Vn=approx(Vn,0,1e-6)?0:0;
+ S.V=Vn;S.lake=Math.max(0,S.lake-F.Qin*dt);S.t+=dt;
+ S.cIn+=F.Qin*dt;S.cOut+=F.Qout*dt;S.cSp+=sp;S.cLoss+=F.Qloss*dt;}
+function resetStats(){S.cIn=S.cOut=S.cSp=S.cLoss=0;S.V0=S.V;}
+function reiniciar(){const{area,Vmax}=volTanque();S.V=clamp(p.h0*area,0,Vmax);S.lake=5e5;S.t=0;resetStats();
+ for(const k in S.hist)S.hist[k].length=0;S.lastSample=-1e9;muestrear();actualizar();}
+
+/* ===== Controles ===== */
+function mkCtl(host,c,store,cb){
+ const[id,lab,un,mn,mx,st,df]=c;const d=document.createElement("div");d.className="ctl";
+ d.innerHTML=`<label for="n_${id}"><span>${lab}</span><span>${un}</span></label><div class="row"><input type="range" id="r_${id}" min="${mn}" max="${mx}" step="${st}"><input type="number" id="n_${id}" min="${mn}" max="${mx}" step="${st}"></div>`;
+ host.appendChild(d);const r=d.querySelector("input[type=range]"),n=d.querySelector("input[type=number]");
+ const set=v=>{v=parseFloat(String(v).replace(",","."));if(!Number.isFinite(v))v=store[id];v=clamp(v,+r.min,+r.max);store[id]=v;r.value=v;n.value=v;};
+ set(store[id]);
+ r.oninput=()=>{set(r.value);cb(id)};n.onchange=()=>{set(n.value);cb(id)};}
+function syncCtl(id){const v=p[id];$("r_"+id).value=v;$("n_"+id).value=v;}
+function setMax(id,mx){LIM[id][1]=mx;["r_","n_"].forEach(x=>$(x+id).max=mx);if(p[id]>mx){p[id]=mx;syncCtl(id);}}
+function onChange(id){
+ const{area,Vmax}=volTanque();
+ if(id==="TH"){setMax("h0",p.TH);}
+ if(id==="h0"){S.V=clamp(p.h0*area,0,Vmax);resetStats();}
+ if(["TL","TB","TH"].includes(id)){S.V=Math.min(S.V,Vmax);resetStats();}
+ actualizar();}
+CFG.forEach(g=>{const h=document.createElement("h3");h.textContent=g[0];$("controls").appendChild(h);g.slice(1).forEach(c=>mkCtl($("controls"),c,p,onChange));});
+
+/* Controles del módulo cuadrático */
+const qdef=[["P","Perímetro mojado P","m",1,100,.1,12],["y","Profundidad y","m",.01,50,.01,2.5],["At","Área objetivo A","m²",.1,1000,.1,15]];
+qdef.forEach(c=>mkCtl($("qctl"),c,Q,id=>{if(id==="P"){const m=Q.P/2-.01;$("r_y").max=$("n_y").max=m;if(Q.y>m){Q.y=m;syncQ();}}actualizar();}));
+function syncQ(){["P","y","At"].forEach(k=>{$("r_"+k).value=Q[k];$("n_"+k).value=Q[k];});}
+$("r_y").max=$("n_y").max=Q.P/2-.01;
+
+/* ===== Escena 3D ===== */
+const view=$("view");
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;view.appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xcfe6f5);scene.fog=new THREE.Fog(0xcfe6f5,120,260);
+const cam=new THREE.PerspectiveCamera(50,1,.1,500);
+scene.add(new THREE.HemisphereLight(0xffffff,0x6b8aa5,.85));const dl=new THREE.DirectionalLight(0xffffff,.7);dl.position.set(35,60,45);dl.castShadow=true;dl.shadow.mapSize.set(2048,2048);Object.assign(dl.shadow.camera,{left:-90,right:90,top:60,bottom:-60,near:10,far:220});scene.add(dl);
+const M=(c,o)=>new THREE.MeshLambertMaterial(Object.assign({color:c},o||{}));
+const selectable=[];
+function add(mesh,id,parent){mesh.userData.id=id;(parent||scene).add(mesh);selectable.push(mesh);return mesh;}
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(190,130),M(0xcdd9b8));ground.rotation.x=-Math.PI/2;ground.position.set(5,-.05,0);scene.add(ground);
+const labels=[];
+function label(txt,x,y,z){const c=document.createElement("canvas");c.width=256;c.height=64;const g=c.getContext("2d");g.fillStyle="rgba(10,42,74,.85)";g.fillRect(0,0,256,64);g.fillStyle="#fff";g.font="bold 26px Arial";g.textAlign="center";g.fillText(txt,128,40);
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));s.scale.set(10,2.5,1);s.position.set(x,y,z);scene.add(s);labels.push(s);return s;}
+/* Entorno */
+function bx(w,h,d,c,x,y,z,par,id,o){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c,o));m.position.set(x,y,z);if(id)add(m,id,par);else(par||scene).add(m);return m;}
+function cy(rt,rb,h,c,x,y,z,par,id,seg,o){const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg||24),M(c,o));m.position.set(x,y,z);if(id)add(m,id,par);else(par||scene).add(m);return m;}
+function tree(x,z,sc,par){const g=new THREE.Group();g.position.set(x,0,z);(par||scene).add(g);cy(.12*sc,.18*sc,1.6*sc,0x6b4a2f,0,.8*sc,0,g,null,6);cy(0,1*sc,2.2*sc,0x2f7d46,0,2.4*sc,0,g,null,8);cy(0,.8*sc,1.8*sc,0x3a9157,0,3.5*sc,0,g,null,8);}
+const sea=new THREE.Mesh(new THREE.PlaneGeometry(140,320),M(0x2aa6c4,{transparent:true,opacity:.9}));sea.rotation.x=-Math.PI/2;sea.position.set(172,-.1,0);scene.add(sea);
+bx(12,.1,320,0xe8dcb8,104,-.02,0);
+[[-60,-80,40,32],[-20,-86,50,42],[25,-80,44,36],[70,-86,48,40],[-98,-70,36,26]].forEach(([x,z,r,h])=>{cy(0,r,h,0x5d7f66,x,h/2-1,z,null,null,7);cy(0,r*.22,h*.22,0xf2f5f7,x,h-1-h*.11,z,null,null,7);});
+[[-52,-22],[-56,20],[-30,-24],[-8,-14],[8,16],[30,-18],[33,18],[62,-24],[64,24],[-10,22]].forEach(([x,z],i)=>tree(x,z,.8+(i%3)*.25));
+/* Fuente y captación */
+const lakeG=new THREE.Mesh(new THREE.BoxGeometry(22,3,24),M(0x9c8660));lakeG.position.set(-38,1.5,0);scene.add(lakeG);
+const lakeW=new THREE.Mesh(new THREE.BoxGeometry(21,1,23,12,1,12),M(0x2a8fd6,{transparent:true,opacity:.85}));scene.add(lakeW);
+bx(3,3.4,3.4,0x8d99a6,-26,1.7,0,null,"captacion");bx(3.4,.3,3.8,0x6c7a89,-26,3.55,0,null,"captacion");bx(.15,2.2,3,0x33414f,-24.4,1.6,0,null,"captacion");
+bx(1.2,1.4,1.2,0xdfe4e9,-26,4.4,0,null,"captacion");
+label("Fuente y captación",-34,9,0);
+/* PTAP */
+const ptap=new THREE.Group();ptap.position.set(-15,0,0);scene.add(ptap);
+[-4.8,-1.6,1.6,4.8].forEach(x=>bx(3.1,.3,6.6,0xb9c1c9,x,.15,0,ptap,"ptap"));
+bx(2.6,1.5,3.2,0x8aa4bb,-4.8,1.05,.4,ptap,"ptap");bx(2.2,.1,2.8,0x2a6f99,-4.8,1.82,.4,ptap);bx(1.1,1.6,1.1,0xd8dee4,-4.8,1.1,-2.5,ptap,"ptap");bx(1.3,.15,1.3,0x6c7a89,-4.8,1.95,-2.5,ptap);
+[-1.8,1.8].forEach(z=>{cy(1.15,1.15,1.6,0xa9c3d6,-1.6,1.1,z,ptap,"ptap");cy(1.02,1.02,.05,0x2f9bd8,-1.6,1.92,z,ptap);});
+bx(.5,.1,5,0x8a949e,-1.6,2.1,0,ptap);
+cy(1.35,1.35,2.2,0x4f86b5,1.6,1.4,-.6,ptap,"ptap");cy(.15,1.35,.5,0x3b6f9c,1.6,2.75,-.6,ptap,"ptap");bx(1,1.2,1,0xe8e1d5,1.6,.9,2.4,ptap,"ptap");
+bx(2.7,2.2,3.6,0xe6e2d8,4.8,1.4,0,ptap,"ptap");bx(3.1,.2,4,0x8a4b3a,4.8,2.6,0,ptap);bx(.8,1.3,.05,0x4a5a6a,4.8,.95,1.83,ptap);
+label("PTAP: Captación · Tratamiento · Agua tratada · Salida",-15,7,0).scale.set(15,3.5,1);
+/* Estación de bombeo */
+const pump=new THREE.Group();scene.add(pump);
+bx(6.4,.4,4.6,0xb9bfc5,0,.2,-.8,pump,"bomba");
+const vol=cy(1.25,1.25,1.2,0x1769aa,0,1.5,0,pump,"bomba",24);vol.rotation.x=Math.PI/2;
+const mot=cy(.95,.95,2.6,0x2f7fb8,0,1.5,-1.9,pump,"bomba",20);mot.rotation.x=Math.PI/2;
+for(let k=0;k<5;k++){const r=cy(1.02,1.02,.12,0x1b5c8c,0,1.5,-.9-k*.45,pump,null,20);r.rotation.x=Math.PI/2;}
+const imp=bx(1.3,.14,.14,0xffffff,0,1.5,-3.25,pump);
+[[-2.1,1.8,0x4f86b5],[1.8,1,0x1769aa]].forEach(([x,l,c])=>{const st=cy(.5,.5,l,c,x,1.3,0,pump,null,12);st.rotation.z=Math.PI/2;});
+bx(1.2,2.2,.9,0xdfe4e9,2.4,1.5,-1.6,pump,"bomba");
+const pled=new THREE.Mesh(new THREE.SphereGeometry(.35),new THREE.MeshBasicMaterial({color:0x888888}));pled.position.set(2.4,2.85,-1.6);pump.add(pled);
+label("Estación de bombeo",0,7,0);
+/* Tanque */
+const tank=new THREE.Group();tank.position.set(20,0,0);scene.add(tank);
+bx(10.6,.4,10.6,0xb9bfc5,0,-.2,0,tank);
+const tkGlass=add(new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({color:0xaed6f1,transparent:true,opacity:.18,depthWrite:false})),"tanque",tank);
+const tkEdges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),new THREE.LineBasicMaterial({color:0x1769aa}));tank.add(tkEdges);
+const tkWater=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),M(0x1e88e5,{transparent:true,opacity:.8}));tank.add(tkWater);
+const tkG=cy(.17,.17,1,0xdde6ee,0,.5,0,tank,null,10,{transparent:true,opacity:.6}),tkGW=cy(.12,.12,1,0x1e88e5,0,.5,0,tank,null,10);
+const tkLab=label("Tanque de almacenamiento",20,10,0);
+/* Sectores urbanos con viviendas */
+const sectors=[],PAL=[0xf2e2b6,0xf4c7c3,0xbfdcf0,0xe9d5b5,0xf7f3ea,0xcfe3c0],ROOF=[0xb5533c,0x8a4b3a,0x9c3d2e,0x6d6f73],WG={emissive:0x1d3b52};
+function casa(par,x,z,w,d,fl,wall,roof,face,gable,id){
+ const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=face>0?0:Math.PI;par.add(g);
+ const h=fl*1.5,body=add(new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(wall)),id,g);body.position.y=.2+h/2;
+ for(let f=0;f<fl;f++)[
